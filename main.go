@@ -36,6 +36,7 @@ func main() {
 	statePath := flag.String("state", defaultStatePath(), "encrypted state file (passkeys, PIN, counter)")
 	pinentry := flag.String("pinentry", "", "pinentry program for presence prompts (default: auto-detect a GUI pinentry)")
 	name := flag.String("name", "tpm-fido2", "HID device name")
+	debug := flag.Bool("debug", false, "log every CTAP request and its status (contains RP and user names)")
 	autoPresence := flag.Bool("insecure-auto-presence", false, "approve every request without asking (TESTING ONLY)")
 	flag.Usage = func() {
 		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s [flags]\n\nRuns a TPM-backed FIDO2 security key as a virtual USB HID device until interrupted.\n\nFlags:\n", os.Args[0])
@@ -44,14 +45,20 @@ func main() {
 	flag.Parse()
 	log.SetFlags(0)
 
-	if err := run(*tpmPath, *statePath, *pinentry, *name, *autoPresence); err != nil {
+	if err := run(*tpmPath, *statePath, *pinentry, *name, *autoPresence, *debug); err != nil {
 		log.Fatalf("tpm-fido2: %v", err)
 	}
 }
 
-func run(tpmPath, statePath, pinentryPath, name string, autoPresence bool) error {
+func run(tpmPath, statePath, pinentryPath, name string, autoPresence, debug bool) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+
+	lock, err := store.Lock(statePath)
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
 
 	tpm, err := tpmkey.Open(tpmPath)
 	if err != nil {
@@ -76,6 +83,7 @@ func run(tpmPath, statePath, pinentryPath, name string, autoPresence bool) error
 	if err != nil {
 		return err
 	}
+	auth.Debug = debug
 
 	dev, err := hiddev.Open(ctx, name)
 	if err != nil {

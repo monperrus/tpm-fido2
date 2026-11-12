@@ -5,7 +5,7 @@ WebAuthn relying party (fido2.server) verifying every response. The daemon
 must run with --insecure-auto-presence and a throwaway --state file: this
 script sets a PIN and finally resets the authenticator.
 
-Only the device with the tpm-fido2 VID/PID is touched.
+Only the device named tpm-fido2-e2e (VID/PID and serial) is touched.
 """
 
 from __future__ import annotations
@@ -32,6 +32,8 @@ from fido2.webauthn import (
 )
 
 VID, PID = 0x1209, 0x0001
+# Unique HID name/serial given by run.sh: never touch a real tpm-fido2 instance.
+NAME = "tpm-fido2-e2e"
 PIN = "246813"
 RP = PublicKeyCredentialRpEntity(id="example.com", name="Example")
 ORIGIN = "https://example.com"
@@ -48,7 +50,7 @@ def check(name: str, cond: bool, detail: str = "") -> None:
 def find_device() -> CtapHidDevice:
     for _ in range(50):
         for d in CtapHidDevice.list_devices():
-            if d.descriptor.vid == VID and d.descriptor.pid == PID:
+            if (d.descriptor.vid, d.descriptor.pid, d.descriptor.serial_number) == (VID, PID, NAME):
                 return d
         time.sleep(0.1)
     sys.exit("tpm-fido2 device not found")

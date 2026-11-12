@@ -57,3 +57,20 @@ func TestRoundTripAndWrongKey(t *testing.T) {
 		t.Fatal("reset kept epoch")
 	}
 }
+
+func TestLockExclusive(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "state")
+	l, err := Lock(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Lock(p); err == nil {
+		t.Fatal("second lock succeeded")
+	}
+	l.Close()
+	l2, err := Lock(p)
+	if err != nil {
+		t.Fatalf("lock after release: %v", err)
+	}
+	l2.Close()
+}

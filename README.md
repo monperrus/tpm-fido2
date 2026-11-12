@@ -50,7 +50,9 @@ tpm-fido2 [-tpm /dev/tpmrm0] [-state ~/.local/share/tpm-fido2/state] [-pinentry 
 ```
 
 It runs in the foreground until interrupted and prints the hidraw node once
-ready. As a systemd user service:
+ready. Only one instance can use a state file (it is locked); `-debug` logs
+every CTAP request and its status code, which is what to attach to a bug
+report. As a systemd user service:
 
 ```
 install -D tpm-fido2 ~/.local/bin/tpm-fido2

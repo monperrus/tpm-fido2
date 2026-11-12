@@ -27,7 +27,9 @@ fail() {
 
 # Independent client: libfido2 tools (used by OpenSSH and systemd-cryptenroll).
 if command -v fido2-cred >/dev/null; then
-	dev=$(fido2-token -L | grep 'vendor=0x1209, product=0x0001' | cut -d: -f1)
+	dev=$(fido2-token -L | grep 'vendor=0x1209, product=0x0001 ( tpm-fido2-e2e)' | cut -d: -f1)
+	[ "$(printf '%s\n' "$dev" | wc -l)" = 1 ] && [ -n "$dev" ] || fail "libfido2: test device not uniquely found"
+
 	cd "$work"
 	head -c32 /dev/urandom | base64 >cdh
 	{ cat cdh; echo example.org; echo alice; head -c16 /dev/urandom | base64; } >cred_in

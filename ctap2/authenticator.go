@@ -67,6 +67,9 @@ type Authenticator struct {
 	credEnum []store.Credential
 
 	u2f u2fPresence
+
+	// Debug logs every request (CBOR diagnostic notation) and its status.
+	Debug bool
 }
 
 // New creates an Authenticator. It derives its software keys from the TPM's
@@ -107,6 +110,18 @@ var encMode, _ = cbor.CTAP2EncOptions().EncMode()
 
 // CBOR implements ctaphid.Handler.
 func (a *Authenticator) CBOR(ctx context.Context, req []byte, setStatus func(byte)) []byte {
+	resp := a.handleCBOR(ctx, req, setStatus)
+	if a.Debug && len(req) > 0 {
+		diag := ""
+		if len(req) > 1 {
+			diag, _ = cbor.Diagnose(req[1:])
+		}
+		log.Printf("debug: ctap2 cmd=0x%02x status=0x%02x req=%s", req[0], resp[0], diag)
+	}
+	return resp
+}
+
+func (a *Authenticator) handleCBOR(ctx context.Context, req []byte, setStatus func(byte)) []byte {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if len(req) == 0 {

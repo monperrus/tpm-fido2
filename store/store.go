@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"syscall"
 	"time"
 )
 
@@ -52,6 +53,23 @@ type Store struct {
 
 // MaxPINRetries is the PIN retry budget.
 const MaxPINRetries = 8
+
+// Lock takes an exclusive lock next to the state file, so that two daemons
+// never share (and overwrite) one state. Release by closing the file.
+func Lock(path string) (*os.File, error) {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return nil, err
+	}
+	f, err := os.OpenFile(path+".lock", os.O_RDWR|os.O_CREATE, 0o600)
+	if err != nil {
+		return nil, err
+	}
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		f.Close()
+		return nil, fmt.Errorf("%s is in use by another tpm-fido2 process", path)
+	}
+	return f, nil
+}
 
 // Open loads the state at path, creating a fresh one if the file is missing.
 func Open(path string, key []byte) (*Store, error) {

@@ -76,7 +76,15 @@ func sw(data []byte, status uint16) []byte {
 }
 
 // Msg implements ctaphid.Handler for CTAP1/U2F APDUs.
-func (a *Authenticator) Msg(_ context.Context, req []byte) []byte {
+func (a *Authenticator) Msg(ctx context.Context, req []byte) []byte {
+	resp := a.handleMsg(req)
+	if a.Debug && len(req) >= 4 {
+		log.Printf("debug: u2f ins=0x%02x p1=0x%02x sw=%x", req[1], req[2], resp[len(resp)-2:])
+	}
+	return resp
+}
+
+func (a *Authenticator) handleMsg(req []byte) []byte {
 	if len(req) < 4 {
 		return sw(nil, swWrongLength)
 	}
