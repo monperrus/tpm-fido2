@@ -69,6 +69,13 @@ Manage it like any security key, e.g. `fido2-token -I /dev/hidrawN`,
 (list passkeys), or the browser's security key settings
 (`chrome://settings/securityKeys`).
 
+## Troubleshooting
+
+- Registering on a site where this key already holds a credential fails
+  (CTAP status `0x19`, credential excluded): the site lists its known
+  credentials and the authenticator refuses a duplicate, as a hardware key
+  does. Signing in with the existing passkey works in any browser.
+
 ## Design
 
 - **Credential keys.** Per credential, a random 16-byte seed; a storage primary
