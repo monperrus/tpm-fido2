@@ -1,0 +1,4 @@
+/tpm-fido2
+/.venv/
+__pycache__/
+plan-*.md

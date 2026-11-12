@@ -1,0 +1,10 @@
+[Unit]
+Description=TPM-backed FIDO2 security key (tpm-fido2)
+After=graphical-session.target
+
+[Service]
+ExecStart=%h/.local/bin/tpm-fido2
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
