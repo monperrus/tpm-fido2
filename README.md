@@ -100,12 +100,26 @@ Manage it like any security key, e.g. `fido2-token -I /dev/hidrawN`,
 
 ## Security notes
 
+- **Trust boundary:** the current deployment trusts processes with access to
+  the TPM and the state file. TPM objects use empty authorization; such a
+  process can derive the state encryption key and sign directly, bypassing
+  the daemon's PIN checks and presence dialog. Keeping private keys
+  non-exportable does not prevent unauthorized signing on this machine.
+- **Recommended mitigation for hostile local processes:** isolate the
+  authenticator under a dedicated OS identity, protect its state and process
+  memory, restrict direct TPM device access, and expose only validated
+  authenticator operations. This requires deployment changes; the supplied
+  user service does not provide this isolation. TPM object authorization can
+  add protection only if its secret is inaccessible to the attacker; storing
+  that secret under the same desktop user does not establish this boundary.
 - Keys cannot be exported or backed up. Clearing the TPM (`tpm2_clear`, BIOS
   "clear TPM") or losing the state file destroys all credentials: always
   register a second authenticator.
 - Like any software confirmation dialog, the pinentry prompt can be clicked by
   malware running as your user (on X11 in particular). The TPM protects against
-  key theft, not against a compromised session.
+  key theft, not against a compromised session. Service isolation alone does
+  not make the desktop prompt trustworthy; strong physical-presence assurance
+  requires a trusted input path, such as a separate hardware authenticator.
 - The PIN retry counter is in the state file; an attacker who can write your
   files can roll it back to keep guessing online. Use a strong PIN.
 - `--insecure-auto-presence` approves every request without asking. It exists
