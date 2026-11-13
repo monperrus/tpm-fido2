@@ -364,15 +364,18 @@ func (a *Authenticator) checkPIN(proto pinProtocol, shared, pinHashEnc []byte) e
 	if a.pinConsecutiveFails >= 3 {
 		return ErrPINAuthBlocked
 	}
-	st.PINRetries--
-	if err := a.store.Save(); err != nil {
-		return err
-	}
 	ph, err := proto.decrypt(shared, pinHashEnc)
 	if err != nil {
 		return err
 	}
-	if len(ph) < 16 || subtle.ConstantTimeCompare(ph[:16], st.PINHash) != 1 {
+	if len(ph) != 16 {
+		return ErrInvalidParameter
+	}
+	st.PINRetries--
+	if err := a.store.Save(); err != nil {
+		return err
+	}
+	if subtle.ConstantTimeCompare(ph, st.PINHash) != 1 {
 		a.regenKeyAgreement()
 		a.pinConsecutiveFails++
 		if st.PINRetries <= 0 {

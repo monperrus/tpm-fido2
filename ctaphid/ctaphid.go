@@ -108,6 +108,15 @@ type job struct {
 
 type done struct{ cid uint32 }
 
+type sessionKey struct{}
+
+// Session identifies a channel incarnation. It is cancelled on CANCEL or INIT.
+// Calls outside the HID transport share the nil session for compatibility.
+func Session(ctx context.Context) context.Context {
+	s, _ := ctx.Value(sessionKey{}).(context.Context)
+	return s
+}
+
 // Run serves until ctx is cancelled or the device fails.
 func (s *Server) Run(ctx context.Context) error {
 	reports := make(chan []byte)
@@ -128,6 +137,19 @@ func (s *Server) Run(ctx context.Context) error {
 	}()
 
 	channels := map[uint32]bool{}
+	sessions := map[uint32]context.Context{}
+	cancels := map[uint32]context.CancelFunc{}
+	defer func() {
+		for _, cancel := range cancels {
+			cancel()
+		}
+	}()
+	renew := func(cid uint32) {
+		if cancel := cancels[cid]; cancel != nil {
+			cancel()
+		}
+		sessions[cid], cancels[cid] = context.WithCancel(ctx)
+	}
 	var asm *assembly
 	var busy *job
 	finished := make(chan done, 1)
@@ -183,7 +205,7 @@ func (s *Server) Run(ctx context.Context) error {
 				if len(asm.data) >= asm.total {
 					a := asm
 					asm = nil
-					busy = s.dispatch(ctx, a.cid, a.cmd, a.data[:a.total], busy, finished)
+					busy = s.dispatch(context.WithValue(ctx, sessionKey{}, sessions[a.cid]), a.cid, a.cmd, a.data[:a.total], busy, finished)
 				}
 				continue
 			}
@@ -213,6 +235,7 @@ func (s *Server) Run(ctx context.Context) error {
 					continue
 				}
 				resp := make([]byte, 17)
+				renew(newCID)
 				copy(resp[0:8], r[7:15])
 				binary.BigEndian.PutUint32(resp[8:12], newCID)
 				resp[12] = 2 // CTAPHID protocol version
@@ -226,6 +249,7 @@ func (s *Server) Run(ctx context.Context) error {
 				continue
 			}
 			if cmd == CmdCancel {
+				renew(cid)
 				if busy != nil && busy.cid == cid {
 					busy.cancel()
 				}
@@ -242,7 +266,7 @@ func (s *Server) Run(ctx context.Context) error {
 			a := &assembly{cid: cid, cmd: cmd, total: bcnt, last: time.Now()}
 			a.data = append(a.data, r[7:]...)
 			if len(a.data) >= a.total {
-				busy = s.dispatch(ctx, cid, cmd, a.data[:a.total], busy, finished)
+				busy = s.dispatch(context.WithValue(ctx, sessionKey{}, sessions[cid]), cid, cmd, a.data[:a.total], busy, finished)
 			} else {
 				asm = a
 			}

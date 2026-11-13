@@ -63,6 +63,7 @@ type Authenticator struct {
 	pinConsecutiveFails int
 
 	next     *pendingAssertions
+	session  context.Context
 	rpEnum   []string
 	credEnum []store.Credential
 
@@ -124,6 +125,11 @@ func (a *Authenticator) CBOR(ctx context.Context, req []byte, setStatus func(byt
 func (a *Authenticator) handleCBOR(ctx context.Context, req []byte, setStatus func(byte)) []byte {
 	a.mu.Lock()
 	defer a.mu.Unlock()
+	session := ctaphid.Session(ctx)
+	if session != a.session || (a.session != nil && a.session.Err() != nil) {
+		a.next, a.rpEnum, a.credEnum = nil, nil, nil
+	}
+	a.session = session
 	if len(req) == 0 {
 		return []byte{byte(ErrInvalidLength)}
 	}
